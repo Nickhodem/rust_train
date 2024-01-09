@@ -1,108 +1,108 @@
-use std::env;
-use std::fs::{File, OpenOptions};
-use chrono::{DateTime, TimeZone, NaiveDateTime, Utc};
-use std::io::{BufRead, BufReader, Write};
-use std::path::Path;
-use std::str::FromStr;
+use std::{env, fs};
+use std::fs::{File, read_dir};
+use std::io::{BufRead, BufReader};
+use regex::Regex;
 
 fn main() {
-    let budget = Budget::new(String::from("budget.txt"));
-
-    // type=[deposit, withdrawn] amount = 2000.0 descrtiption="Kino"
-
     let args: Vec<String> = env::args()
         .collect();
     let option = args[1].as_str();
 
     match option {
-         "show_summary" => {
-            println!{"showing summary of budget"};
-            budget.show_summary();
+        "echo" => {
+            let st = args[2..].join(" ");
+            println!("{}", st);
+        }
+        "cat" => {
+            println!{"echo file..."};
+            let mut numbers = false;
+            let mut number_no_blank = false;
+            let mut it = args.clone().into_iter();
+            for a in it{
+                if a == "n"{
+                    numbers = true;
+                }
+                if a == "b"{
+                    number_no_blank=true;
+                }
+            }
+
+            if args.len() >= 2{
+                echo(&args[2], numbers, number_no_blank)
+            }
         },
-        "deposit" => {
-            println!("Registring deposit");
-            let amount = budget.amount(&args[2]);
-            let type_ = budget.type_(&args[3]);
-            budget.deposit(amount, type_);
-        },
-        "withdrawn" => {
-            println!("Registring withdrawn");
-            let amount = budget.amount(&args[2]);
-            let type_ = budget.type_(&args[3]);
-            budget.withdrawn(amount, type_);
-        },
+        "wc" => {
+            wc(&args[2]);
+        }
+        "find" => {
+            find(&args[2], &args[3]);
+        }
         value=> {
             println!("Wrong parameters");
         }
     };
-
-
 }
 
-struct Budget{
-    filename: String,
-}
-
-impl Budget{
-
-    fn new(filename: String) -> Budget{
-        if !Path::new("/etc/hosts").exists(){
-        let test_file = File::create(filename.clone());
-        }
-        return Budget{filename: filename.clone()};
-    }
-    fn show_summary(&self){
-        let mut sum = 0.0;
-        let file = File::open(self.filename.clone())
-            .unwrap();
-        let reader = BufReader::new(file);
-        for (index, line) in reader.lines().enumerate() {
-            if let Ok(current_line) = line {
-                println!("{}: {}", index + 1, current_line);
-                let line_vec: Vec<_> = current_line.split_whitespace().collect();
-
-                let amount = f64::from_str(line_vec[2]).unwrap();
-                if line_vec[1] == "deposit"{
-                    sum += amount;
-                }
-                else {
-                    sum -= amount;
+fn echo(string: &String, number: bool, number_no_blank: bool){
+    let file = File::open(string)
+        .unwrap();
+    let reader = BufReader::new(file);
+    for (index, line) in reader.lines().enumerate() {
+        if let Ok(current_line) = line {
+            if number{
+                print!("{} ", index);
+            }
+            if number_no_blank{
+                if current_line.len()>0{
+                    print!("{} ", index);
                 }
             }
+            print!("{}\n", current_line)
         }
-        println!("Summary: {sum}");
     }
+}
 
-    fn deposit(&self, amount: f64, type_: String){
-        self.write(String::from("deposit"), amount, type_);
+fn wc(string: &String){
+    let file = File::open(string)
+        .unwrap();
+    let reader = BufReader::new(file);
+    let mut word_num = 0;
+    let mut char_num =0;
+    let mut byte_num = 0;
+    let mut line_num = 0;
+    for line in reader.lines(){
+        if let Ok(current_line) = line {
+            line_num += 1;
+            byte_num += current_line.bytes().len();
+            char_num += current_line.len();
+            let vec: Vec<_> = current_line.split_whitespace().collect();
+            word_num += vec.len();
+
+        }
     }
+    println!("lines: {}, words: {}, chars: {}, bytes: {}", line_num, word_num, char_num, byte_num);
+}
 
-    fn withdrawn(&self, amount: f64, type_: String){
-        self.write(String::from("withdrawn"), amount, type_);
-    }
+fn find(pattern: &String, directory: &String){
+    let re = Regex::new(pattern).unwrap();
 
-    fn amount(&self, var: & String) -> f64{
-        let f = var.parse::<f64>().unwrap();
-        println!("amount {}", f);
-        return f;
-    }
+    for entry_res in read_dir(directory).unwrap() {
 
-    fn type_(&self, var: & String) -> String{
-        return var.clone();
-    }
+        let entry = entry_res.unwrap();
+        let file_name = entry.file_name();
+        let file_name_buf = file_name.to_str().unwrap();
 
-    fn write(&self, operation: String, amount: f64, type_: String){
-        let test_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .append(true)
-            .open(self.filename.clone());
+        let matching = re.is_match(file_name_buf);
 
-        let dt = Utc::now();
-        let formatted = format!("{}", dt.format("%d/%m/%Y@%H:%M"));
-        if let Ok(mut output_file) = test_file {
-            writeln!(output_file, "{formatted}, {operation} {amount} {type_}").expect("panic message");
+        if matching {
+            let p = entry.path();
+
+            println!("{:?} : {}", file_name_buf, p.to_str().unwrap());
+        }
+
+        if entry.file_type().unwrap().is_dir(){
+            let p = entry.path();
+            find(pattern, &String::from(p.to_str().unwrap()));
         }
     }
 }
