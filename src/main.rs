@@ -1,169 +1,108 @@
-use std::io;
-use crate::Cell::{Empty, Taken};
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Player {
-    X,
-    O,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Cell {
-    Empty,
-    Taken(Player),
-}
+use std::env;
+use std::fs::{File, OpenOptions};
+use chrono::{DateTime, TimeZone, NaiveDateTime, Utc};
+use std::io::{BufRead, BufReader, Write};
+use std::path::Path;
+use std::str::FromStr;
 
 fn main() {
+    let budget = Budget::new(String::from("budget.txt"));
 
-    let mut game = Board{ fields: [[Cell::Empty;3];3] };
-    game.reset();
+    // type=[deposit, withdrawn] amount = 2000.0 descrtiption="Kino"
 
-    let end = game.check_end();
-    game.render();
-    let mut state = State{gamer: Player::X, column:0, row: 0};
-    loop{
-        state.action(&mut game);
-        game.render();
-        if game.check_winner() || game.check_end(){
-            game.reset();
-            game.render();
-            println!("Starts over, player {:#?}", state.gamer);
+    let args: Vec<String> = env::args()
+        .collect();
+    let option = args[1].as_str();
+
+    match option {
+         "show_summary" => {
+            println!{"showing summary of budget"};
+            budget.show_summary();
+        },
+        "deposit" => {
+            println!("Registring deposit");
+            let amount = budget.amount(&args[2]);
+            let type_ = budget.type_(&args[3]);
+            budget.deposit(amount, type_);
+        },
+        "withdrawn" => {
+            println!("Registring withdrawn");
+            let amount = budget.amount(&args[2]);
+            let type_ = budget.type_(&args[3]);
+            budget.withdrawn(amount, type_);
+        },
+        value=> {
+            println!("Wrong parameters");
         }
-    }
+    };
+
+
 }
 
-
-struct State{
-    gamer: Player, // x, or o
-    column: usize,
-    row: usize,
+struct Budget{
+    filename: String,
 }
 
-impl State {
-    fn action(& mut self, board: &mut Board){
-        println!("Please provide column: ");
-        let column = self.get_input();
-        println!("Please provide row: ");
-        let row = self.get_input();
-        if board.set_field(self.gamer, column, row){
-            if board.check_winner(){
-                println!{"Player {:#?} wins!", self.gamer};
-            }
-            if board.check_end(){
-                println!{"Game over"};
-            }
-            self.switch_gamer();
-        }
-        else{
-            println!("Invalid move, try again {:#?}", self.gamer);
-            self.action(board);
-        }
+impl Budget{
 
+    fn new(filename: String) -> Budget{
+        if !Path::new("/etc/hosts").exists(){
+        let test_file = File::create(filename.clone());
+        }
+        return Budget{filename: filename.clone()};
     }
+    fn show_summary(&self){
+        let mut sum = 0.0;
+        let file = File::open(self.filename.clone())
+            .unwrap();
+        let reader = BufReader::new(file);
+        for (index, line) in reader.lines().enumerate() {
+            if let Ok(current_line) = line {
+                println!("{}: {}", index + 1, current_line);
+                let line_vec: Vec<_> = current_line.split_whitespace().collect();
 
-    fn switch_gamer(& mut self){
-        if self.gamer == Player::X{
-            self.gamer = Player::O;
-        }
-        else{
-            self.gamer = Player::X;
-        }
-        println!("Gamer now: {:#?}", self.gamer);
-    }
-
-    fn get_input(&self) -> usize{
-        loop {
-            let mut provided_column = String::new();
-
-            io::stdin()
-                .read_line(&mut provided_column)
-                .expect("Read line failed");
-
-            let guess: usize = match provided_column.trim().parse() {
-                Ok(value) => value,
-                Err(_) => {
-                    println!("Incorrect number");
-                    continue;
+                let amount = f64::from_str(line_vec[2]).unwrap();
+                if line_vec[1] == "deposit"{
+                    sum += amount;
                 }
-            };
-            return guess;
-        }
-    }
-}
-
-struct Board{
-    fields: [[Cell; 3];3],
-}
-
-impl Board {
-
-    fn reset(& mut self){
-        self.fields = [[Cell::Empty;3];3];
-    }
-    fn set_field(& mut self, player: Player, x: usize, y: usize) -> bool{
-        if x > self.fields.len()-1 || y > self.fields[0].len()-1{
-            return false;
-        }
-        if self.fields[x][y] != Cell::Empty{
-            return false;
-        }
-
-        self.fields[x][y] = Cell::Taken(player);
-        return true;
-    }
-
-    fn check_winner(&self) -> bool {
-        for y in 0 .. self.fields.len(){
-            if self.fields[y][0] != Cell::Empty && self.fields[y][0] == self.fields[y][1] && self.fields[y][1] == self.fields[y][2]{
-                return true;
-            }
-        }
-        for y in 0 .. self.fields.len(){
-            if self.fields[0][y] != Cell::Empty && self.fields[0][y] == self.fields[1][y] && self.fields[1][y] == self.fields[2][y]{
-                return true;
-            }
-        }
-
-        if self.fields[0][0] != Cell::Empty && self.fields[0][0] == self.fields[1][1] && self.fields[1][1] == self.fields[2][2]{
-            return true;
-        }
-        if self.fields[2][0] != Cell::Empty && self.fields[2][0] == self.fields[1][1] && self.fields[1][1] == self.fields[0][2]{
-            return true;
-        }
-        false
-    }
-    fn check_end(&self) -> bool {
-        for y in 0 .. self.fields.len(){
-            for x in 0 .. self.fields[0].len(){
-                if self.fields[x][y] == Cell::Empty {
-                return false;
+                else {
+                    sum -= amount;
                 }
             }
-            }
-        return true;
+        }
+        println!("Summary: {sum}");
     }
 
-    fn render(&self){
-        for y in 0 .. self.fields.len(){
-            for x in 0 .. self.fields[0].len(){
-                if self.fields[x][y] == Empty{
-                    print!(" ");
-                }
-                if self.fields[x][y] == Cell::Taken(Player::X){
-                    print!("x");
-                }
-                if self.fields[x][y] == Cell::Taken(Player::O){
-                    print!("o");
-                }
+    fn deposit(&self, amount: f64, type_: String){
+        self.write(String::from("deposit"), amount, type_);
+    }
 
-                if y< self.fields[0].len(){
-                    print!("|");
-                }
-            }
-            println!("");
-            if y < self.fields.len()-1{
-                println!("-----")
-            }
+    fn withdrawn(&self, amount: f64, type_: String){
+        self.write(String::from("withdrawn"), amount, type_);
+    }
+
+    fn amount(&self, var: & String) -> f64{
+        let f = var.parse::<f64>().unwrap();
+        println!("amount {}", f);
+        return f;
+    }
+
+    fn type_(&self, var: & String) -> String{
+        return var.clone();
+    }
+
+    fn write(&self, operation: String, amount: f64, type_: String){
+        let test_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .append(true)
+            .open(self.filename.clone());
+
+        let dt = Utc::now();
+        let formatted = format!("{}", dt.format("%d/%m/%Y@%H:%M"));
+        if let Ok(mut output_file) = test_file {
+            writeln!(output_file, "{formatted}, {operation} {amount} {type_}").expect("panic message");
         }
     }
 }
