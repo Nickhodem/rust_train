@@ -10,18 +10,23 @@ fn main() {
 
     println!("Before join thread {:?}", thread::current());
 
-    match result {
-        Ok(handle) => _ = handle.join(),
-        Err(error) => println!("Error {}", error)
-    };
+    let values = match result {
+        Ok(handle) => handle.join(),
+        Err(error) => {
+            println!("Error {}", error);
+            Ok(vec![0])
+        }
+    }.expect("Failed");
 
     println!("After joint {:?}", thread::current());
+    println!("num {}", values[0]);
 }
 
-fn task(numbers: &Vec<i32>){
+fn task(numbers: &Vec<i32>) -> Vec<i32>{
     println!("Numbers: {:?}", numbers);
     for index in 1.. 10 {
         println!("Index: {}, thread {:?}", index, thread::current());
         thread::sleep(Duration::from_secs(1));
     }
+    return numbers.clone();
 }
