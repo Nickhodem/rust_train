@@ -76,8 +76,7 @@ fn wc(string: &String){
             byte_num += current_line.bytes().len();
             char_num += current_line.len();
             let vec: Vec<_> = current_line.split_whitespace().collect();
-            word_num += vec.len();
-
+            word_num += vec.count();
         }
     }
     println!("lines: {}, words: {}, chars: {}, bytes: {}", line_num, word_num, char_num, byte_num);
