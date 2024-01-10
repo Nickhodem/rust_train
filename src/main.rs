@@ -6,7 +6,7 @@ fn main() {
 
     let result = thread::Builder::new()
         .name("other".to_string())
-        .spawn(move || task(&numbers));
+        .spawn(move || task(numbers));
 
     println!("Before join thread {:?}", thread::current());
 
@@ -22,11 +22,11 @@ fn main() {
     println!("num {}", values[0]);
 }
 
-fn task(numbers: &Vec<i32>) -> Vec<i32>{
+fn task(numbers: Vec<i32>) -> Vec<i32>{
     println!("Numbers: {:?}", numbers);
     for index in 1.. 10 {
         println!("Index: {}, thread {:?}", index, thread::current());
         thread::sleep(Duration::from_secs(1));
     }
-    return numbers.clone();
+    return numbers;
 }
