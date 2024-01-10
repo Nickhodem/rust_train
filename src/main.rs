@@ -1,5 +1,5 @@
 use std::mem;
-use crate::record::{HumanRecord, Record};
+use crate::record::{DataBase, HumanRecord, Record};
 
 mod record;
 
@@ -27,5 +27,25 @@ fn main() {
     let hss = strc.to_human();
 
     println!("{:?}", hss);
+
+    let mut  database = DataBase::new(String::from("database.sql"));
+
+    database.put(hs);
+
+    let hs = HumanRecord{
+        id: 256,
+        first_name: String::from("Niko"),
+        last_name: String::from("Pan"),
+        is_active: false,
+        age: 31,
+    };
+    database.put(hs);
+
+    database.get(256);
+
+    database.delete(111);
+
+
+
 }
 

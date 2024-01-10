@@ -1,10 +1,9 @@
 use std::{mem, slice};
 use std::cmp::min;
+use std::fs::File;
 use std::intrinsics::copy_nonoverlapping;
-use std::io::{Read, Write};
-pub struct DataBase{
-    filename: String,
-}
+use std::io::{Read, Seek, SeekFrom, Write};
+
 
 const STRING_SIZE: usize = 10;
 #[repr(C, packed)]
@@ -120,7 +119,59 @@ impl HumanRecord{
 
         return pad_bytes;
     }
+}
 
+pub struct DataBase{
+    pub file: File,
+    write_pos: u64
+}
+
+impl DataBase{
+    pub fn new(filename: String) -> Self {
+        Self {
+            file: File::open(filename).unwrap(),
+            write_pos: 0,
+        }
+    }
+    fn open(){
+
+    }
+    pub fn put(&mut self, record: HumanRecord){
+        self.file.seek(SeekFrom::Start(self.write_pos));
+
+        let buf: [u8; RECORD_SIZE] = record.to_record().to_bytes();
+        self.file.write(&buf).unwrap();
+        self.write_pos += (RECORD_SIZE as u64);
+    }
+
+    pub fn get(&mut self, id: i64) -> HumanRecord{
+        let mut read_pos = 0;
+
+        loop {
+            self.file.seek(SeekFrom::Start(read_pos)).unwrap();
+
+            let mut buffer:[u8; RECORD_SIZE] = [0; RECORD_SIZE];
+
+            self.file.read_exact(&mut buffer).unwrap();
+
+            let rec =  Record::from_bytes(buffer).to_human();
+
+            if rec.id == id {
+                return rec;
+            }
+            else{ read_pos  += (RECORD_SIZE as u64);
+            }
+        }
+
+    }
+
+    pub fn delete(&self, id: i64){
+
+    }
+
+    pub fn update(record: HumanRecord){
+
+    }
 
 
 }
